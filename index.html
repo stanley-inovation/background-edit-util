@@ -17,13 +17,29 @@
 </head>
 <body class="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
 
+  <!-- Mobile Menu Toggle -->
+  <button id="mobile-toggle" class="md:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center">
+    <i data-lucide="settings-2" id="toggle-icon-open" class="w-6 h-6"></i>
+    <i data-lucide="x" id="toggle-icon-close" class="w-6 h-6 hidden-block"></i>
+  </button>
+
+  <!-- Mobile Backdrop -->
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-20 hidden-block transition-opacity duration-300 md:hidden"></div>
+
   <!-- LEFT SIDEBAR - Tools -->
-  <div class="w-80 bg-white border-r border-gray-200 flex flex-col shadow-lg z-10 flex-shrink-0">
+  <div id="sidebar" class="fixed inset-y-0 left-0 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:shadow-lg flex-shrink-0">
     <div class="p-5 border-b border-gray-200">
-      <h1 class="text-xl font-bold flex items-center gap-2 text-indigo-600">
-        <i data-lucide="image" class="w-6 h-6"></i> Textify Background
-      </h1>
-      <p class="text-xs text-gray-500 mt-1">High-Res Layout Editor</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-bold flex items-center gap-2 text-indigo-600">
+            <i data-lucide="image" class="w-6 h-6"></i> Textify
+          </h1>
+          <p class="text-xs text-gray-500 mt-1">High-Res Layout Editor</p>
+        </div>
+        <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
     </div>
 
     <div class="flex-1 overflow-y-auto p-5 space-y-6">
@@ -139,14 +155,14 @@
   <div id="workspace" class="flex-1 relative overflow-auto bg-gray-200 custom-scrollbar cursor-default">
     
     <!-- Empty State -->
-    <div id="workspace-empty" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-      <i data-lucide="image" class="w-24 h-24 mb-4 text-gray-300"></i>
-      <h2 class="text-2xl font-semibold mb-2 text-gray-600">No Background Image Loaded</h2>
-      <p>Upload a clean background using the sidebar to begin.</p>
+    <div id="workspace-empty" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
+      <i data-lucide="image" class="w-16 h-16 md:w-24 md:h-24 mb-4 text-gray-300"></i>
+      <h2 class="text-xl md:text-2xl font-semibold mb-2 text-gray-600">No Background Image</h2>
+      <p class="max-w-xs">Upload a clean background using the sidebar to begin.</p>
     </div>
 
     <!-- Active Workspace -->
-    <div id="workspace-active" class="p-8 min-h-full min-w-full flex items-center justify-center hidden-block">
+    <div id="workspace-active" class="p-4 md:p-8 min-h-full min-w-full flex items-center justify-center hidden-block">
       <!-- Wrapper to maintain scrollable area dimensions when scaled -->
       <div id="canvas-wrapper" class="flex-shrink-0 transition-transform duration-0">
         <!-- The scaled container representing the real image dimensions -->
@@ -173,7 +189,8 @@
       imgDimensions: { width: 0, height: 0 },
       texts: [],
       selectedId: null,
-      zoom: 1
+      zoom: 1,
+      isSidebarOpen: false
     };
 
     let dragState = {
@@ -187,6 +204,13 @@
 
     // --- DOM ELEMENTS ---
     const els = {
+      mobileToggle: document.getElementById('mobile-toggle'),
+      toggleIconOpen: document.getElementById('toggle-icon-open'),
+      toggleIconClose: document.getElementById('toggle-icon-close'),
+      sidebar: document.getElementById('sidebar'),
+      sidebarBackdrop: document.getElementById('sidebar-backdrop'),
+      closeSidebarBtn: document.getElementById('close-sidebar-btn'),
+
       uploadBtn: document.getElementById('upload-btn'),
       uploadBtnText: document.getElementById('upload-btn-text'),
       fileInput: document.getElementById('file-input'),
@@ -244,6 +268,11 @@
 
     // --- EVENT BINDING ---
     function bindEvents() {
+      // Sidebar Toggle
+      els.mobileToggle.addEventListener('click', toggleSidebar);
+      els.sidebarBackdrop.addEventListener('click', toggleSidebar);
+      els.closeSidebarBtn.addEventListener('click', toggleSidebar);
+
       // Upload
       els.uploadBtn.addEventListener('click', () => els.fileInput.click());
       els.fileInput.addEventListener('change', handleImageUpload);
@@ -302,6 +331,11 @@
     }
 
     // --- ACTIONS ---
+    function toggleSidebar() {
+      state.isSidebarOpen = !state.isSidebarOpen;
+      renderSidebar();
+    }
+
     function handleImageUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -313,7 +347,10 @@
           state.imageSrc = event.target.result;
           state.imgDimensions = { width: img.width, height: img.height };
           
-          const maxInitialWidth = window.innerWidth - 350;
+          const isMobile = window.innerWidth < 768;
+          const sidebarWidth = isMobile ? 0 : 320;
+          const maxInitialWidth = window.innerWidth - sidebarWidth - 64; // padding
+
           if (img.width > maxInitialWidth) {
             state.zoom = Math.max(0.1, maxInitialWidth / img.width);
           } else {
@@ -322,6 +359,8 @@
 
           state.texts = [];
           state.selectedId = null;
+          
+          if (isMobile) state.isSidebarOpen = false;
           
           renderAll();
         };
@@ -335,8 +374,8 @@
       const newId = Date.now().toString();
       const newText = {
         id: newId,
-        content: 'Double click to edit\nor use sidebar',
-        x: state.imgDimensions.width / 2 - 100,
+        content: 'New Text',
+        x: state.imgDimensions.width / 2 - 50,
         y: state.imgDimensions.height / 2,
         fontSize: 48,
         fontFamily: 'Arial',
@@ -349,6 +388,11 @@
       state.selectedId = newId;
       renderTexts();
       renderProperties();
+
+      if (window.innerWidth < 768) {
+        state.isSidebarOpen = false;
+        renderSidebar();
+      }
     }
 
     function updateSelectedText(key, value) {
@@ -480,6 +524,21 @@
       renderZoom();
       renderTexts();
       renderProperties();
+      renderSidebar();
+    }
+
+    function renderSidebar() {
+      if (state.isSidebarOpen) {
+        els.sidebar.classList.remove('-translate-x-full');
+        els.sidebarBackdrop.classList.remove('hidden-block');
+        els.toggleIconOpen.classList.add('hidden-block');
+        els.toggleIconClose.classList.remove('hidden-block');
+      } else {
+        els.sidebar.classList.add('-translate-x-full');
+        els.sidebarBackdrop.classList.add('hidden-block');
+        els.toggleIconOpen.classList.remove('hidden-block');
+        els.toggleIconClose.classList.add('hidden-block');
+      }
     }
 
     function renderBaseUI() {
