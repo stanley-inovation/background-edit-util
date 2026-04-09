@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Textify Background</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { width: 12px; height: 12px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 6px; border: 3px solid #f1f5f9; }
+    
+    /* Utility class to hide elements */
+    .hidden-block { display: none !important; }
+  </style>
+</head>
+<body class="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
+
+  <!-- LEFT SIDEBAR - Tools -->
+  <div class="w-80 bg-white border-r border-gray-200 flex flex-col shadow-lg z-10 flex-shrink-0">
+    <div class="p-5 border-b border-gray-200">
+      <h1 class="text-xl font-bold flex items-center gap-2 text-indigo-600">
+        <i data-lucide="image" class="w-6 h-6"></i> Textify Background
+      </h1>
+      <p class="text-xs text-gray-500 mt-1">High-Res Layout Editor</p>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-5 space-y-6">
+      <!-- File Upload -->
+      <div>
+        <button id="upload-btn" class="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg py-3 font-medium hover:bg-indigo-100 transition-colors">
+          <i data-lucide="upload" class="w-5 h-5"></i>
+          <span id="upload-btn-text">Upload Background</span>
+        </button>
+        <input type="file" id="file-input" accept="image/*" class="hidden" />
+      </div>
+
+      <!-- Controls - Only active if image exists -->
+      <div id="controls-panel" class="space-y-6 opacity-40 pointer-events-none">
+        
+        <!-- Viewport / Zoom Controls -->
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+          <label class="text-xs font-semibold text-gray-600 uppercase mb-3 block">View & Zoom</label>
+          <div class="flex items-center gap-3">
+            <button id="zoom-out-btn" class="p-1 text-gray-500 hover:text-indigo-600">
+              <i data-lucide="zoom-out" class="w-4 h-4"></i>
+            </button>
+            <input type="range" id="zoom-slider" min="0.1" max="2" step="0.05" value="1" class="flex-1 accent-indigo-600" />
+            <button id="zoom-in-btn" class="p-1 text-gray-500 hover:text-indigo-600">
+              <i data-lucide="zoom-in" class="w-4 h-4"></i>
+            </button>
+            <span id="zoom-label" class="text-xs font-mono w-10 text-right">100%</span>
+          </div>
+        </div>
+
+        <!-- Add Text Button -->
+        <button id="add-text-btn" class="w-full flex items-center justify-center gap-2 bg-gray-900 text-white rounded-lg py-3 font-medium hover:bg-gray-800 transition-colors shadow-sm">
+          <i data-lucide="type" class="w-5 h-5"></i> Add New Text
+        </button>
+
+        <!-- Empty Properties State -->
+        <div id="empty-props-state" class="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+          <i data-lucide="mouse-pointer-2" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+          <p class="text-sm">Click on any text on the image<br/>to edit its properties.</p>
+        </div>
+
+        <!-- Properties Panel (Shows when text is selected) -->
+        <div id="props-panel" class="hidden-block bg-white border border-gray-200 p-4 rounded-xl shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-1">
+              <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i> Selected Text
+            </label>
+            <button id="delete-text-btn" class="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition" title="Delete Text">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Content</label>
+            <textarea id="prop-content" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-y min-h-[80px]" placeholder="Enter text here..."></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Font Family</label>
+            <select id="prop-font" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label class="block text-sm text-gray-600 mb-1">Size (px)</label>
+              <input type="number" id="prop-size" min="8" max="500" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">Color</label>
+              <input type="color" id="prop-color" class="w-14 h-9 p-1 border border-gray-300 rounded-md cursor-pointer" />
+            </div>
+          </div>
+
+          <!-- Formatting Toggles -->
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Formatting</label>
+            <div class="flex gap-2">
+              <button id="prop-bold" class="p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50" title="Bold">
+                <i data-lucide="bold" class="w-4 h-4"></i>
+              </button>
+              <button id="prop-underline" class="p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50" title="Underline">
+                <i data-lucide="underline" class="w-4 h-4"></i>
+              </button>
+              
+              <div class="w-px bg-gray-200 mx-1"></div>
+              
+              <button id="prop-align-left" class="p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50" title="Align Left">
+                <i data-lucide="align-left" class="w-4 h-4"></i>
+              </button>
+              <button id="prop-align-center" class="p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50" title="Align Center">
+                <i data-lucide="align-center" class="w-4 h-4"></i>
+              </button>
+              <button id="prop-align-right" class="p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50" title="Align Right">
+                <i data-lucide="align-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Download Button -->
+    <div class="p-5 border-t border-gray-200 bg-gray-50">
+      <button id="export-btn" disabled class="w-full flex items-center justify-center gap-2 rounded-lg py-3 font-semibold text-white shadow-md transition-all bg-gray-300 cursor-not-allowed">
+        <i data-lucide="download" class="w-5 h-5"></i> Export Final Image
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT WORKSPACE - Canvas Area -->
+  <div id="workspace" class="flex-1 relative overflow-auto bg-gray-200 custom-scrollbar cursor-default">
+    
+    <!-- Empty State -->
+    <div id="workspace-empty" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+      <i data-lucide="image" class="w-24 h-24 mb-4 text-gray-300"></i>
+      <h2 class="text-2xl font-semibold mb-2 text-gray-600">No Background Image Loaded</h2>
+      <p>Upload a clean background using the sidebar to begin.</p>
+    </div>
+
+    <!-- Active Workspace -->
+    <div id="workspace-active" class="p-8 min-h-full min-w-full flex items-center justify-center hidden-block">
+      <!-- Wrapper to maintain scrollable area dimensions when scaled -->
+      <div id="canvas-wrapper" class="flex-shrink-0 transition-transform duration-0">
+        <!-- The scaled container representing the real image dimensions -->
+        <div id="canvas-container" class="relative shadow-2xl bg-white bg-opacity-50" style="transform-origin: top left;">
+          <!-- Background Image Layer -->
+          <img id="bg-image" src="" alt="Background" class="absolute inset-0 w-full h-full pointer-events-none" />
+          
+          <!-- Text Layers Overlay container -->
+          <div id="texts-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- STATE ---
+    const FONTS = [
+      'Arial', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS', 
+      'Times New Roman', 'Georgia', 'Garamond', 'Courier New', 
+      'Brush Script MT', 'Impact', 'Comic Sans MS'
+    ];
+    let state = {
+      imageSrc: null,
+      imgDimensions: { width: 0, height: 0 },
+      texts: [],
+      selectedId: null,
+      zoom: 1
+    };
+
+    let dragState = {
+      isDragging: false,
+      id: null,
+      startX: 0,
+      startY: 0,
+      originalTextX: 0,
+      originalTextY: 0
+    };
+
+    // --- DOM ELEMENTS ---
+    const els = {
+      uploadBtn: document.getElementById('upload-btn'),
+      uploadBtnText: document.getElementById('upload-btn-text'),
+      fileInput: document.getElementById('file-input'),
+      controlsPanel: document.getElementById('controls-panel'),
+      
+      zoomSlider: document.getElementById('zoom-slider'),
+      zoomInBtn: document.getElementById('zoom-in-btn'),
+      zoomOutBtn: document.getElementById('zoom-out-btn'),
+      zoomLabel: document.getElementById('zoom-label'),
+      
+      addTextBtn: document.getElementById('add-text-btn'),
+      emptyPropsState: document.getElementById('empty-props-state'),
+      propsPanel: document.getElementById('props-panel'),
+      deleteTextBtn: document.getElementById('delete-text-btn'),
+      
+      exportBtn: document.getElementById('export-btn'),
+      
+      workspace: document.getElementById('workspace'),
+      workspaceEmpty: document.getElementById('workspace-empty'),
+      workspaceActive: document.getElementById('workspace-active'),
+      canvasWrapper: document.getElementById('canvas-wrapper'),
+      canvasContainer: document.getElementById('canvas-container'),
+      bgImage: document.getElementById('bg-image'),
+      textsContainer: document.getElementById('texts-container'),
+      
+      propContent: document.getElementById('prop-content'),
+      propFont: document.getElementById('prop-font'),
+      propSize: document.getElementById('prop-size'),
+      propColor: document.getElementById('prop-color'),
+      
+      propBold: document.getElementById('prop-bold'),
+      propUnderline: document.getElementById('prop-underline'),
+      propAlignLeft: document.getElementById('prop-align-left'),
+      propAlignCenter: document.getElementById('prop-align-center'),
+      propAlignRight: document.getElementById('prop-align-right'),
+    };
+
+    // --- INITIALIZATION ---
+    function init() {
+      // Initialize Lucide icons
+      lucide.createIcons();
+
+      // Populate Fonts
+      FONTS.forEach(font => {
+        const option = document.createElement('option');
+        option.value = font;
+        option.textContent = font;
+        option.style.fontFamily = font;
+        els.propFont.appendChild(option);
+      });
+
+      bindEvents();
+      renderAll();
+    }
+
+    // --- EVENT BINDING ---
+    function bindEvents() {
+      // Upload
+      els.uploadBtn.addEventListener('click', () => els.fileInput.click());
+      els.fileInput.addEventListener('change', handleImageUpload);
+
+      // Zoom
+      els.zoomSlider.addEventListener('input', (e) => {
+        state.zoom = parseFloat(e.target.value);
+        renderZoom();
+      });
+      els.zoomInBtn.addEventListener('click', () => {
+        state.zoom = Math.min(2, state.zoom + 0.1);
+        renderZoom();
+      });
+      els.zoomOutBtn.addEventListener('click', () => {
+        state.zoom = Math.max(0.1, state.zoom - 0.1);
+        renderZoom();
+      });
+
+      // Add & Delete Text
+      els.addTextBtn.addEventListener('click', handleAddText);
+      els.deleteTextBtn.addEventListener('click', handleDeleteSelectedText);
+
+      // Workspace Deselect
+      els.workspace.addEventListener('pointerdown', (e) => {
+        if (e.target === els.workspace || e.target === els.workspaceActive || e.target === els.canvasWrapper || e.target === els.bgImage) {
+          state.selectedId = null;
+          renderTexts();
+          renderProperties();
+        }
+      });
+
+      // Properties Inputs
+      els.propContent.addEventListener('input', (e) => updateSelectedText('content', e.target.value));
+      els.propFont.addEventListener('change', (e) => updateSelectedText('fontFamily', e.target.value));
+      els.propSize.addEventListener('input', (e) => updateSelectedText('fontSize', parseInt(e.target.value) || 12));
+      els.propColor.addEventListener('input', (e) => updateSelectedText('color', e.target.value));
+      
+      els.propBold.addEventListener('click', () => {
+        const t = getSelectedText();
+        if (t) updateSelectedText('isBold', !t.isBold);
+      });
+      els.propUnderline.addEventListener('click', () => {
+        const t = getSelectedText();
+        if (t) updateSelectedText('isUnderline', !t.isUnderline);
+      });
+      els.propAlignLeft.addEventListener('click', () => updateSelectedText('textAlign', 'left'));
+      els.propAlignCenter.addEventListener('click', () => updateSelectedText('textAlign', 'center'));
+      els.propAlignRight.addEventListener('click', () => updateSelectedText('textAlign', 'right'));
+
+      // Dragging (Global events)
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+
+      // Export
+      els.exportBtn.addEventListener('click', handleExport);
+    }
+
+    // --- ACTIONS ---
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          state.imageSrc = event.target.result;
+          state.imgDimensions = { width: img.width, height: img.height };
+          
+          const maxInitialWidth = window.innerWidth - 350;
+          if (img.width > maxInitialWidth) {
+            state.zoom = Math.max(0.1, maxInitialWidth / img.width);
+          } else {
+            state.zoom = 1;
+          }
+
+          state.texts = [];
+          state.selectedId = null;
+          
+          renderAll();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = ''; // Reset input
+    }
+
+    function handleAddText() {
+      const newId = Date.now().toString();
+      const newText = {
+        id: newId,
+        content: 'Double click to edit\nor use sidebar',
+        x: state.imgDimensions.width / 2 - 100,
+        y: state.imgDimensions.height / 2,
+        fontSize: 48,
+        fontFamily: 'Arial',
+        color: '#000000',
+        isBold: false,
+        isUnderline: false,
+        textAlign: 'left',
+      };
+      state.texts.push(newText);
+      state.selectedId = newId;
+      renderTexts();
+      renderProperties();
+    }
+
+    function updateSelectedText(key, value) {
+      state.texts = state.texts.map(t => t.id === state.selectedId ? { ...t, [key]: value } : t);
+      renderTexts();
+      renderProperties();
+    }
+
+    function handleDeleteSelectedText() {
+      state.texts = state.texts.filter(t => t.id !== state.selectedId);
+      state.selectedId = null;
+      renderTexts();
+      renderProperties();
+    }
+
+    function getSelectedText() {
+      return state.texts.find(t => t.id === state.selectedId);
+    }
+
+    // --- DRAG LOGIC ---
+    function handlePointerDown(e, id, x, y) {
+      e.stopPropagation();
+      state.selectedId = id;
+      dragState = {
+        isDragging: true,
+        id,
+        startX: e.clientX,
+        startY: e.clientY,
+        originalTextX: x,
+        originalTextY: y
+      };
+      renderTexts();
+      renderProperties();
+    }
+
+    function handlePointerMove(e) {
+      if (!dragState.isDragging) return;
+      
+      const dx = (e.clientX - dragState.startX) / state.zoom;
+      const dy = (e.clientY - dragState.startY) / state.zoom;
+
+      state.texts = state.texts.map(t => 
+        t.id === dragState.id 
+          ? { ...t, x: dragState.originalTextX + dx, y: dragState.originalTextY + dy } 
+          : t
+      );
+      renderTexts();
+    }
+
+    function handlePointerUp() {
+      dragState.isDragging = false;
+    }
+
+    // --- EXPORT LOGIC ---
+    function handleExport() {
+      if (!state.imageSrc) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = state.imgDimensions.width;
+      canvas.height = state.imgDimensions.height;
+      const ctx = canvas.getContext('2d');
+
+      const img = new Image();
+      img.onload = () => {
+        // 1. Draw Background
+        ctx.drawImage(img, 0, 0);
+
+        // 2. Draw Texts
+        state.texts.forEach(text => {
+          ctx.font = `${text.isBold ? 'bold ' : ''}${text.fontSize}px "${text.fontFamily}"`;
+          ctx.fillStyle = text.color;
+          ctx.textBaseline = 'top';
+
+          const lines = text.content.split('\n');
+          
+          let maxWidth = 0;
+          lines.forEach(line => {
+            const w = ctx.measureText(line).width;
+            if (w > maxWidth) maxWidth = w;
+          });
+
+          lines.forEach((line, index) => {
+            const lineY = text.y + (index * text.fontSize * 1.2);
+            let lineX = text.x;
+
+            ctx.textAlign = text.textAlign || 'left';
+            if (text.textAlign === 'center') {
+              lineX = text.x + (maxWidth / 2);
+            } else if (text.textAlign === 'right') {
+              lineX = text.x + maxWidth;
+            }
+
+            ctx.fillText(line, lineX, lineY);
+
+            // Draw Underline
+            if (text.isUnderline) {
+              const lineWidth = ctx.measureText(line).width;
+              let startX = text.x;
+              if (text.textAlign === 'center') {
+                startX = lineX - (lineWidth / 2);
+              } else if (text.textAlign === 'right') {
+                startX = lineX - lineWidth;
+              }
+
+              ctx.beginPath();
+              ctx.strokeStyle = text.color;
+              ctx.lineWidth = Math.max(2, text.fontSize * 0.08);
+              const underlineY = lineY + text.fontSize * 1.15;
+              ctx.moveTo(startX, underlineY);
+              ctx.lineTo(startX + lineWidth, underlineY);
+              ctx.stroke();
+            }
+          });
+        });
+
+        // 3. Trigger Download
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = 'custom-background-image.png';
+        link.href = dataUrl;
+        link.click();
+      };
+      img.src = state.imageSrc;
+    }
+
+    // --- RENDERING ---
+    function renderAll() {
+      renderBaseUI();
+      renderZoom();
+      renderTexts();
+      renderProperties();
+    }
+
+    function renderBaseUI() {
+      if (state.imageSrc) {
+        els.uploadBtnText.textContent = 'Change Background';
+        els.controlsPanel.classList.remove('opacity-40', 'pointer-events-none');
+        
+        els.exportBtn.disabled = false;
+        els.exportBtn.classList.remove('bg-gray-300', 'cursor-not-allowed');
+        els.exportBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700', 'cursor-pointer');
+
+        els.workspaceEmpty.classList.add('hidden-block');
+        els.workspaceActive.classList.remove('hidden-block');
+        
+        els.bgImage.src = state.imageSrc;
+        
+        // Set dimensions
+        els.canvasContainer.style.width = `${state.imgDimensions.width}px`;
+        els.canvasContainer.style.height = `${state.imgDimensions.height}px`;
+      } else {
+        els.uploadBtnText.textContent = 'Upload Background';
+        els.controlsPanel.classList.add('opacity-40', 'pointer-events-none');
+        
+        els.exportBtn.disabled = true;
+        els.exportBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+        els.exportBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'cursor-pointer');
+
+        els.workspaceEmpty.classList.remove('hidden-block');
+        els.workspaceActive.classList.add('hidden-block');
+      }
+    }
+
+    function renderZoom() {
+      els.zoomSlider.value = state.zoom;
+      els.zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
+      
+      if (state.imageSrc) {
+        els.canvasWrapper.style.width = `${state.imgDimensions.width * state.zoom}px`;
+        els.canvasWrapper.style.height = `${state.imgDimensions.height * state.zoom}px`;
+        els.canvasContainer.style.transform = `scale(${state.zoom})`;
+      }
+    }
+
+    function renderTexts() {
+      els.textsContainer.innerHTML = '';
+      
+      state.texts.forEach(text => {
+        const textEl = document.createElement('div');
+        const isSelected = state.selectedId === text.id;
+        
+        textEl.className = `absolute whitespace-pre origin-top-left group ${isSelected ? 'ring-2 ring-indigo-500 ring-dashed ring-offset-4 ring-offset-transparent z-20 cursor-move' : 'cursor-pointer hover:ring-1 hover:ring-gray-400 hover:ring-dashed z-10'}`;
+        textEl.style.left = `${text.x}px`;
+        textEl.style.top = `${text.y}px`;
+        textEl.style.fontSize = `${text.fontSize}px`;
+        textEl.style.fontFamily = `"${text.fontFamily}"`;
+        textEl.style.color = text.color;
+        textEl.style.fontWeight = text.isBold ? 'bold' : 'normal';
+        textEl.style.textDecoration = text.isUnderline ? 'underline' : 'none';
+        textEl.style.textAlign = text.textAlign || 'left';
+        textEl.style.lineHeight = '1.2';
+        textEl.style.userSelect = 'none';
+        textEl.style.touchAction = 'none';
+        
+        textEl.textContent = text.content;
+        
+        textEl.addEventListener('pointerdown', (e) => handlePointerDown(e, text.id, text.x, text.y));
+
+        if (!isSelected) {
+          const hoverIndicator = document.createElement('div');
+          hoverIndicator.className = 'absolute -top-4 -right-4 bg-white shadow text-gray-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center';
+          hoverIndicator.innerHTML = '<i data-lucide="move" class="w-3 h-3"></i>';
+          textEl.appendChild(hoverIndicator);
+        }
+
+        els.textsContainer.appendChild(textEl);
+      });
+      lucide.createIcons(); // Re-initialize icons inside dynamically added text elements
+    }
+
+    function renderProperties() {
+      const selected = getSelectedText();
+      
+      if (selected) {
+        els.emptyPropsState.classList.add('hidden-block');
+        els.propsPanel.classList.remove('hidden-block');
+        
+        // Update inputs without triggering events
+        els.propContent.value = selected.content;
+        els.propFont.value = selected.fontFamily;
+        els.propSize.value = selected.fontSize;
+        els.propColor.value = selected.color;
+        
+        // Update formatting buttons
+        const setBtnActive = (btnEl, isActive) => {
+          if (isActive) {
+            btnEl.className = 'p-2 rounded border transition-colors bg-indigo-100 border-indigo-300 text-indigo-700';
+          } else {
+            btnEl.className = 'p-2 rounded border transition-colors bg-white border-gray-300 text-gray-600 hover:bg-gray-50';
+          }
+        };
+
+        setBtnActive(els.propBold, selected.isBold);
+        setBtnActive(els.propUnderline, selected.isUnderline);
+        setBtnActive(els.propAlignLeft, selected.textAlign === 'left');
+        setBtnActive(els.propAlignCenter, selected.textAlign === 'center');
+        setBtnActive(els.propAlignRight, selected.textAlign === 'right');
+
+      } else {
+        els.emptyPropsState.classList.remove('hidden-block');
+        els.propsPanel.classList.add('hidden-block');
+      }
+    }
+
+    // Start App
+    init();
+  </script>
+</body>
+</html>
